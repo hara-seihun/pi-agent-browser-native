@@ -347,7 +347,7 @@ Examples:
   - `click` with `selector` or semantic locator fields
   - `fill` with `selector` and `text`, or semantic locator fields plus `text`
   - `type` with `text`; optional `selector` focuses the target first, optional `delayMs` emits per-character `keyboard type` plus `wait` rows, and optional `press` emits a final `press <key>` row such as `Enter`. Delayed typing is capped at 200 characters per step. Model-visible batch prose compacts generated per-character rows; `details.batchSteps` and `details.compiledJob.steps` retain the full bounded row list.
-  - `select` with `selector` plus either `value` or `values` (one or more option values; compiled as `select <selector> <value...>`)
+  - `select` with a non-empty `selector` plus either `value` or non-empty `values` (option values; compiled as `select <selector> <value...>`). Label/role select belongs to a separate top-level `semanticAction` call after opening the page: its fresh current-ref resolution cannot occur between rows of an atomic native batch. The exported job schema rejects select locator fields and mixed value/values; invalid jobs dispatch no rows.
   - `wait` with positive integer `milliseconds`
   - `assertText` with `text` (compiled as passive `wait --text <text>`)
   - `assertUrl` with exact URL or `*` / `**` glob-style `url` pattern (compiled as `wait --url <url-or-pattern>`)

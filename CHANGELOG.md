@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Discriminate job step fields by action in the exported tool schema, sharing the compiler's field contract. Native batch select requires selector and either value or values; label/role select remains a top-level semanticAction with fresh, unambiguous current-ref resolution. Invalid select jobs are rejected before any row dispatch.
+
 ## 0.6.6 - 2026-09-05
 
 ### Fixed

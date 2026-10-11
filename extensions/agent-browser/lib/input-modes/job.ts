@@ -3,6 +3,7 @@ import { isRecord } from "../parsing.js";
 import { summarizeNetworkFailures } from "../results/network.js";
 import { getBatchResultItems, getCommandNameFromBatchItem, getSelectValues } from "./shared.js";
 import { compileAgentBrowserSemanticAction } from "./semantic-action.js";
+import { JOB_STEP_ALLOWED_FIELDS } from "./job-contract.js";
 import {
 	AGENT_BROWSER_JOB_STEP_ACTIONS,
 	AGENT_BROWSER_JOB_TYPE_DELAYED_TEXT_MAX_CHARACTERS,
@@ -50,31 +51,17 @@ function compileJobClickOrFillStep(step: Record<string, unknown>, action: "click
 	return { args: compiled.compiled?.args };
 }
 
-function getUnsupportedJobStepField(step: Record<string, unknown>, allowedFields: ReadonlySet<string>): string | undefined {
-	return Object.keys(step).find((field) => !allowedFields.has(field));
+function getUnsupportedJobStepField(step: Record<string, unknown>, allowedFields: readonly string[]): string | undefined {
+	return Object.keys(step).find((field) => !allowedFields.includes(field));
 }
 
-function getUnsupportedJobStepFieldError(step: Record<string, unknown>, action: AgentBrowserJobStepAction, allowedFields: ReadonlySet<string>): string | undefined {
+function getUnsupportedJobStepFieldError(step: Record<string, unknown>, action: AgentBrowserJobStepAction, allowedFields: readonly string[]): string | undefined {
 	const unsupportedField = getUnsupportedJobStepField(step, allowedFields);
 	if (!unsupportedField) return undefined;
 	const supportedFields = [...allowedFields].filter((field) => field !== "action");
 	const supportedText = supportedFields.length > 0 ? `supported fields are ${supportedFields.join(", ")}.` : "no additional fields are supported.";
 	return `job step ${action} does not support ${unsupportedField}; ${supportedText}`;
 }
-
-const JOB_STEP_ALLOWED_FIELDS = {
-	assertText: new Set(["action", "text"]),
-	assertUrl: new Set(["action", "url"]),
-	click: new Set(["action", "locator", "name", "role", "selector", "value"]),
-	fill: new Set(["action", "locator", "name", "role", "selector", "text", "value"]),
-	open: new Set(["action", "loadState", "url"]),
-	screenshot: new Set(["action", "path"]),
-	select: new Set(["action", "selector", "value", "values"]),
-	snapshot: new Set(["action"]),
-	type: new Set(["action", "delayMs", "press", "selector", "text"]),
-	wait: new Set(["action", "milliseconds"]),
-	waitForDownload: new Set(["action", "path"]),
-} satisfies Record<AgentBrowserJobStepAction, ReadonlySet<string>>;
 
 type CompileJobStepResult = {
 	args?: string[];

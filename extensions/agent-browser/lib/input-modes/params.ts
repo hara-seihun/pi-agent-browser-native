@@ -2,6 +2,7 @@ import { JsonSchema, type JsonSchemaBuilder } from "../json-schema.js";
 import { StringEnum as localStringEnum, type StringEnumBuilder } from "../string-enum-schema.js";
 
 import { AGENT_BROWSER_SCRIPT_CODE_MAX_BYTES } from "./script.js";
+import { JOB_STEP_ALLOWED_FIELDS } from "./job-contract.js";
 import {
 	ELECTRON_DISCOVERY_DEFAULT_MAX_RESULTS,
 	ELECTRON_DISCOVERY_MAX_RESULTS,
@@ -24,6 +25,35 @@ export function createAgentBrowserParamsSchema(
 	Type: JsonSchemaBuilder = JsonSchema,
 	StringEnum: StringEnumBuilder = localStringEnum,
 ) {
+	const jobFields = {
+		url: Type.Optional(Type.String()),
+		loadState: Type.Optional(StringEnum(AGENT_BROWSER_QA_LOAD_STATES)),
+		selector: Type.Optional(Type.String()),
+		locator: Type.Optional(StringEnum(AGENT_BROWSER_SEMANTIC_LOCATORS)),
+		role: Type.Optional(Type.String()),
+		name: Type.Optional(Type.String({ description: "Accessible name." })),
+		text: Type.Optional(Type.String()),
+		value: Type.Optional(Type.String({ description: "Select option or click/fill locator value." })),
+		values: Type.Optional(Type.Array(Type.String(), { minItems: 1 })),
+		path: Type.Optional(Type.String()),
+		delayMs: Type.Optional(Type.Integer({ description: `Per-character delay; text capped at ${AGENT_BROWSER_JOB_TYPE_DELAYED_TEXT_MAX_CHARACTERS} characters.`, minimum: 1 })),
+		press: Type.Optional(Type.String()),
+		milliseconds: Type.Optional(Type.Number()),
+	};
+	const jobStepSchemas = AGENT_BROWSER_JOB_STEP_ACTIONS.flatMap((action) => {
+		if (action === "select") {
+			const target = { action: Type.Literal(action), selector: Type.String({ minLength: 1 }) };
+			return [
+				Type.Object({ ...target, value: Type.String({ minLength: 1 }) }, { additionalProperties: false }),
+				Type.Object({ ...target, values: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }) }, { additionalProperties: false }),
+			];
+		}
+		const fields = JOB_STEP_ALLOWED_FIELDS[action].filter((field) => field !== "action");
+		return [Type.Object({
+			action: Type.Literal(action),
+			...Object.fromEntries(fields.map((field) => [field, jobFields[field as keyof typeof jobFields]])),
+		}, { additionalProperties: false })];
+	});
 	return Type.Object({
 		script: Type.Optional(Type.String({
 			description: "One-shot JavaScript orchestration with async browser({ args, stdin?, timeoutMs? }) and emit(value); isolated session and no host access.",
@@ -137,22 +167,7 @@ export function createAgentBrowserParamsSchema(
 		Type.Object({
 			failFast: Type.Optional(Type.Boolean({ description: "Stop on first failure; default true." })),
 			steps: Type.Array(
-				Type.Object({
-					action: StringEnum(AGENT_BROWSER_JOB_STEP_ACTIONS),
-					url: Type.Optional(Type.String({ description: "Open URL, or assertUrl exact URL/glob that distinguishes the expected state from the starting page." })),
-					loadState: Type.Optional(StringEnum(AGENT_BROWSER_QA_LOAD_STATES, { description: "Readiness wait after open." })),
-					selector: Type.Optional(Type.String({ description: "Selector or @ref." })),
-					locator: Type.Optional(StringEnum(AGENT_BROWSER_SEMANTIC_LOCATORS, { description: "Locator when selector is omitted." })),
-					role: Type.Optional(Type.String({ description: "Role locator." })),
-					name: Type.Optional(Type.String({ description: "Accessible name." })),
-					text: Type.Optional(Type.String({ description: "Fill text or assertText target." })),
-					value: Type.Optional(Type.String({ description: "Select option or locator value." })),
-					values: Type.Optional(Type.Array(Type.String(), { description: "Select options.", minItems: 1 })),
-					path: Type.Optional(Type.String({ description: "Download or screenshot path." })),
-					delayMs: Type.Optional(Type.Integer({ description: `Per-character type delay; text is capped at ${AGENT_BROWSER_JOB_TYPE_DELAYED_TEXT_MAX_CHARACTERS} characters.`, minimum: 1 })),
-					press: Type.Optional(Type.String({ description: "Key to press after typing." })),
-					milliseconds: Type.Optional(Type.Number({ description: "Wait duration in milliseconds." })),
-				}, { additionalProperties: false }),
+				Type.Union(jobStepSchemas, { description: "Fields are action-specific. Select requires selector and value or values; use semanticAction for label/role select." }),
 				{ minItems: 1 },
 			),
 		}, { additionalProperties: false, description: "Constrained multi-step batch." }),
